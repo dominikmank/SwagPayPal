@@ -45,7 +45,7 @@ use Swag\PayPal\Setting\SwagPayPalSettingStruct;
 use Swag\PayPal\Test\Helper\ServicesTrait;
 use Swag\PayPal\Test\Mock\Setting\Service\SettingsServiceMock;
 use Swag\PayPal\Util\PaymentMethodUtil;
-use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\RouterInterface;
 
@@ -67,6 +67,9 @@ class ExpressCheckoutSubscriberTest extends TestCase
             CmsPageLoadedEvent::class => 'addExpressCheckoutDataToCmsPage',
 
             QuickviewPageletLoadedEvent::class => 'addExpressCheckoutDataToPagelet',
+
+            'framework.validation.address.create' => 'disableAddressValidation',
+            'framework.validation.customer.create' => 'disableCustomerValidation',
         ];
 
         static::assertSame($expectedEvents, $subscribedEvents);
@@ -581,13 +584,11 @@ class ExpressCheckoutSubscriberTest extends TestCase
 
         $request = new Request([], [], ['productId' => $product->getId()]);
 
-        $quickViewLoader = null;
-
-        try {
-            /** @var QuickviewPageletLoader $quickViewLoader */
-            $quickViewLoader = $this->getContainer()->get(QuickviewPageletLoader::class);
-        } catch (ServiceNotFoundException $e) {
-        }
+        /** @var QuickviewPageletLoader|null $quickViewLoader */
+        $quickViewLoader = $this->getContainer()->get(
+            QuickviewPageletLoader::class,
+            ContainerInterface::NULL_ON_INVALID_REFERENCE
+        );
 
         if ($quickViewLoader === null) {
             static::markTestSkipped('SwagCmsExtensions plugin is not installed');

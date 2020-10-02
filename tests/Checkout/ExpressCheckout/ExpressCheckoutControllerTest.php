@@ -10,8 +10,8 @@ namespace Swag\PayPal\Test\Checkout\ExpressCheckout;
 use PHPUnit\Framework\TestCase;
 use Shopware\Core\Checkout\Cart\SalesChannel\CartService;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
-use Shopware\Core\Checkout\Customer\SalesChannel\AccountRegistrationService;
 use Shopware\Core\Checkout\Customer\SalesChannel\AccountService;
+use Shopware\Core\Checkout\Customer\SalesChannel\RegisterRoute;
 use Shopware\Core\Checkout\Shipping\ShippingMethodEntity;
 use Shopware\Core\Checkout\Test\Cart\Common\Generator;
 use Shopware\Core\Defaults;
@@ -21,11 +21,13 @@ use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Test\TestCaseBase\BasicTestDataBehaviour;
 use Shopware\Core\Framework\Test\TestCaseBase\DatabaseTransactionBehaviour;
+use Shopware\Core\System\Country\CountryEntity;
 use Shopware\Core\System\Currency\CurrencyEntity;
 use Shopware\Core\System\SalesChannel\Context\SalesChannelContextFactory;
 use Shopware\Core\System\SalesChannel\SalesChannel\SalesChannelContextSwitcher;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\System\SalesChannel\SalesChannelEntity;
+use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Swag\PayPal\Checkout\ExpressCheckout\ExpressCheckoutController;
 use Swag\PayPal\Checkout\ExpressCheckout\ExpressCheckoutData;
 use Swag\PayPal\Checkout\ExpressCheckout\Route\ExpressApprovePaymentRoute;
@@ -153,7 +155,7 @@ class ExpressCheckoutControllerTest extends TestCase
             $this->getSalesChannel(),
             $this->getCurrency(),
             null,
-            null,
+            $this->getCountry(),
             null,
             null,
             $paymentMethod,
@@ -174,15 +176,20 @@ class ExpressCheckoutControllerTest extends TestCase
         $paymentRepository = $container->get('payment_method.repository');
         $paymentMethodUtil = new PaymentMethodUtil($paymentRepository, $salesChannelRepo);
 
-        /** @var SalesChannelEntity|null $salesChannel */
-        $salesChannel = $salesChannelRepo->search(new Criteria(), $context)->first();
-        if ($salesChannel === null) {
-            throw new \RuntimeException('No SalesChannelFound');
-        }
+        $salesChannelId = $salesChannelRepo->searchIds(new Criteria(), $context)->firstId();
+        static::assertNotNull($salesChannelId);
+
+        $countryId = $this->getValidCountryId();
 
         $salesChannelRepo->update([
             [
-                'id' => $salesChannel->getId(),
+                'id' => $salesChannelId,
+                'country' => ['id' => $countryId],
+                'countries' => [
+                    [
+                        'id' => $countryId,
+                    ],
+                ],
                 'domains' => [
                     [
                         'url' => 'https://example.com',
@@ -198,6 +205,13 @@ class ExpressCheckoutControllerTest extends TestCase
                 ],
             ],
         ], $context);
+
+        $criteria = new Criteria();
+        $criteria->addAssociation('domains');
+        $criteria->addAssociation('countries');
+        $criteria->addAssociation('country');
+        $salesChannel = $salesChannelRepo->search($criteria, $context)->first();
+        static::assertNotNull($salesChannel);
 
         return $salesChannel;
     }
@@ -218,6 +232,14 @@ class ExpressCheckoutControllerTest extends TestCase
         return $shippingMethodRepo->search(new Criteria(), Context::createDefaultContext())->first();
     }
 
+    private function getCountry(): CountryEntity
+    {
+        /** @var EntityRepositoryInterface $shippingMethodRepo */
+        $shippingMethodRepo = $this->getContainer()->get('country.repository');
+
+        return $shippingMethodRepo->search(new Criteria([$this->getValidCountryId()]), Context::createDefaultContext())->first();
+    }
+
     private function createController(?CartService $cartService = null): ExpressCheckoutController
     {
         $settings = new SwagPayPalSettingStruct();
@@ -236,8 +258,8 @@ class ExpressCheckoutControllerTest extends TestCase
             /** @var CartService $cartService */
             $cartService = $this->getContainer()->get(CartService::class);
         }
-        /** @var AccountRegistrationService $accountRegistrationService */
-        $accountRegistrationService = $this->getContainer()->get(AccountRegistrationService::class);
+        /** @var RegisterRoute $registerRoute */
+        $registerRoute = $this->getContainer()->get(RegisterRoute::class);
         /** @var EntityRepositoryInterface $countryRepo */
         $countryRepo = $this->getContainer()->get('country.repository');
         /** @var EntityRepositoryInterface $salutationRepo */
@@ -250,10 +272,12 @@ class ExpressCheckoutControllerTest extends TestCase
         $paymentMethodUtil = $this->getContainer()->get(PaymentMethodUtil::class);
         /** @var SalesChannelContextSwitcher $salesChannelContextSwitcher */
         $salesChannelContextSwitcher = $this->getContainer()->get(SalesChannelContextSwitcher::class);
+        /** @var SystemConfigService $systemConfigService */
+        $systemConfigService = $this->getContainer()->get(SystemConfigService::class);
 
         $paymentResource = $this->createPaymentResource($settings);
         $route = new ExpressApprovePaymentRoute(
-            $accountRegistrationService,
+            $registerRoute,
             $countryRepo,
             $salutationRepo,
             $accountService,
@@ -261,7 +285,8 @@ class ExpressCheckoutControllerTest extends TestCase
             $paymentMethodUtil,
             $salesChannelContextSwitcher,
             $paymentResource,
-            $cartService
+            $cartService,
+            $systemConfigService
         );
 
         return new ExpressCheckoutController(

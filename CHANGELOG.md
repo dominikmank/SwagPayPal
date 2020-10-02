@@ -1,5 +1,15 @@
-# REPLACE-GLOBAL-WITH-NEXT-VERSION
+# 1.9.0
+- PPI-1 - Fixes mobile layout of checkout finish for "Pay Upon Invoice"
+- PPI-68, PPI-118 - Improved API struct usage for third party extensions
 - PPI-69 - The Express button is now hidden, when the PayPal payment method is disabled.
+- PPI-97 - Fixes error during Express Checkout, if required fields are not sent by PayPal
+- PPI-124 - Fixes error display during communication with PayPal
+- PPI-128 - Fixes issue during Express Checkout, if changes are made on confirm page
+- PPI-130 - Adds new event, which is emitted when the Plus iFrame is loaded
+- PT-11048 - Introduce iZettle integration (Point of Sales)
+
+# 1.8.4
+- PPI-125 - Shopware 6.3.2.0 compatibility
 
 # 1.8.3
 - PPI-70 - Order number is now correctly submitted to PayPal for payments with Express Checkout, PLUS and Smart Payment Buttons

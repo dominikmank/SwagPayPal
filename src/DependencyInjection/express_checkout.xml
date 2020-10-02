@@ -12,7 +12,7 @@
         </service>
 
         <service id="Swag\PayPal\Checkout\ExpressCheckout\Route\ExpressApprovePaymentRoute">
-            <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\AccountRegistrationService"/>
+            <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\RegisterRoute"/>
             <argument type="service" id="country.repository"/>
             <argument type="service" id="salutation.repository"/>
             <argument type="service" id="Shopware\Core\Checkout\Customer\SalesChannel\AccountService"/>
@@ -21,6 +21,7 @@
             <argument type="service" id="Shopware\Core\System\SalesChannel\SalesChannel\SalesChannelContextSwitcher"/>
             <argument type="service" id="Swag\PayPal\PayPal\Resource\PaymentResource"/>
             <argument type="service" id="Shopware\Core\Checkout\Cart\SalesChannel\CartService"/>
+            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
         </service>
 
         <service id="Swag\PayPal\Checkout\ExpressCheckout\ExpressCheckoutController" public="true">

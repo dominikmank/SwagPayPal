@@ -134,6 +134,13 @@ export default class SwagPayPalPlusPaymentWall extends Plugin {
         setPaymentRouteUrl: '',
 
         /**
+         * URL for updating the context, in this case setting the right language
+         *
+         * @type string
+         */
+        contextSwitchUrl: '',
+
+        /**
          * Request parameter name which identifies a PLUS checkout
          *
          * @type string
@@ -174,13 +181,14 @@ export default class SwagPayPalPlusPaymentWall extends Plugin {
             useraction: this.options.userAction,
             surcharging: this.options.surcharging,
             showLoadingIndicator: this.options.showLoadingIndicator,
-            showPuiOnSandbox: this.options.showPuiOnSandbox
+            showPuiOnSandbox: this.options.showPuiOnSandbox,
+            onLoad: this.onPaymentSelectionLoad
         });
     }
 
     /**
      * Will be triggered when the confirm form was submitted.
-     * In this case, the order will be patched and the PayPal
+     * In this case, the order will be created and the PayPal
      * checkout process will be triggered afterwards
      *
      * @param {Event} event
@@ -198,20 +206,17 @@ export default class SwagPayPalPlusPaymentWall extends Plugin {
         ElementLoadingIndicatorUtil.create(document.body);
 
         const orderId = this.options.orderId;
-        const request = new XMLHttpRequest();
-        let callback = null;
-        if (orderId !== null) {
-            formData.set('orderId', orderId);
-            request.open('POST', this.options.setPaymentRouteUrl);
-            callback = this.afterSetPayment.bind(this);
-        } else {
-            request.open('POST', this.options.checkoutOrderUrl);
-            callback = this.afterCreateOrder.bind(this);
-        }
-        request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        request.setRequestHeader('sw-language-id', this.options.languageId);
+        this._client.patch(this.options.contextSwitchUrl, JSON.stringify({ languageId: this.options.languageId }), () => {
+            if (orderId !== null) {
+                formData.set('orderId', orderId);
 
-        this._client._sendRequest(request, formData, callback);
+                this._client.post(this.options.setPaymentRouteUrl, formData, this.afterSetPayment.bind(this));
+
+                return;
+            }
+
+            this._client.post(this.options.checkoutOrderUrl, formData, this.afterCreateOrder.bind(this));
+        });
     }
 
     /**
@@ -246,5 +251,12 @@ export default class SwagPayPalPlusPaymentWall extends Plugin {
         if (data.paymentUrl === 'plusPatched') {
             this.paypal.apps.PPP.doCheckout();
         }
+    }
+
+    /**
+     * Will be emitted once the PayPal Plus iFrame is loaded
+     */
+    onPaymentSelectionLoad() {
+        document.$emitter.publish('paypalPlusSelectionLoaded');
     }
 }
